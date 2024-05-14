@@ -6,11 +6,11 @@
 def schools_by_topic(mongo_collection, topic):
     '''Returns the list of school having a specific topic.
     '''
-    specfic_topic = {
+    topic_filter = {
         'topics': {
             '$elemMatch': {
                 '$eq': topic,
             },
         },
     }
-    return [sch for sch in mongo_collection.find(specific_topic)]
+    return [doc for doc in mongo_collection.find(topic_filter)]
