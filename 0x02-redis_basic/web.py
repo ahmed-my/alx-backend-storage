@@ -34,4 +34,6 @@ def data_cacher(method: Callable) -> Callable:
 def get_page(url: str) -> str:
     '''Returns the content of a URL after caching the request's response
     '''
+    url = "http://slowwly.robertomurray.co.uk/delay/5000/url/" \
+        "https://www.example.com"
     return requests.get(url).text
