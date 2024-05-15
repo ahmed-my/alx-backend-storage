@@ -1,38 +1,80 @@
 #!/usr/bin/env python3
 '''Module to obtain the HTML content of a particular URL.
 '''
-import redis
 import requests
+import redis
+import time
 from functools import wraps
-from typing import Callable
 
 
-redis_store = redis.Redis()
-'''The module-level Redis instance.
-'''
+# Initialize Redis client
+redis_client = redis.StrictRedis(host='localhost',
+                                 port=6379, db=0, decode_responses=True)
 
 
-def data_cacher(method: Callable) -> Callable:
-    '''Caches the output of fetched data.
-    '''
-    @wraps(method)
-    def invoker(url) -> str:
-        '''The wrapper function for caching the output.
+def cache_page(expiration=10):
+    """
+    Decorator to cache the page content for a given expiration time.
+
+    Args:
+        expiration (int): The time in seconds for cache content to be valid.
+
+    Returns:
+        decorator (function): The caching decorator.
+    """
+    def decorator(func):
+        '''using the decorator
         '''
-        redis_store.incr(f'count:{url}')
-        result = redis_store.get(f'result:{url}')
-        if result:
-            return result.decode('utf-8')
-        result = method(url)
-        redis_store.set(f'count:{url}', 0)
-        redis_store.setex(f'result:{url}', 10, result)
-        return result
-    return invoker
+        @wraps(func)
+        def wrapper(url, *args, **kwargs):
+            '''using the wrapper
+            '''
+            cache_key = f"cache:{url}"
+            count_key = f"count:{url}"
+
+            # Check if the URL is already cached
+            cached_content = redis_client.get(cache_key)
+            if cached_content:
+                # Increment the count for the URL
+                redis_client.incr(count_key)
+                return cached_content
+
+            # If not cached, fetch the content and cache it
+            result = func(url, *args, **kwargs)
+            redis_client.setex(cache_key, expiration, result)
+            redis_client.incr(count_key)
+            return result
+        return wrapper
+    return decorator
 
 
-@data_cacher
+@cache_page(expiration=10)
 def get_page(url: str) -> str:
-    '''Returns the content of a URL after caching the request's response,
-    and tracking the request.
-    '''
-    return requests.get(url).text
+    """
+    Fetch the HTML content of the given URL and return it.
+
+    Args:
+        url (str): The URL of the page to fetch.
+
+    Returns:
+        str: The HTML content of the page.
+
+    Raises:
+        requests.exceptions.RequestException: If the request fails.
+    """
+    response = requests.get(url)
+    response.raise_for_status()  # Raise an HTTPError for bad responses
+    return response.text
+
+
+if __name__ == "__main__":
+    # Testing the function
+    test_url = "http://slowwly.robertomurray.co.uk/delay/5000/url/" \
+        "https://www.example.com"
+    print("Fetching URL for the first time...")
+    print(get_page(test_url))
+
+    time.sleep(1)  # Wait for 1 second
+
+    print("Fetching URL for the second time (should be cached)...")
+    print(get_page(test_url))
