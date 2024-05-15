@@ -5,6 +5,7 @@ import redis
 import requests
 from functools import wraps
 from typing import Callable
+import time
 
 
 redis_store = redis.Redis()
@@ -24,7 +25,6 @@ def data_cacher(method: Callable) -> Callable:
         if result:
             return result.decode('utf-8')
         result = method(url)
-        redis_store.set(f'count:{url}', 0)
         redis_store.setex(f'result:{url}', 10, result)
         return result
     return invoker
@@ -36,3 +36,18 @@ def get_page(url: str) -> str:
     and tracking the request.
     '''
     return requests.get(url).text
+
+
+if __name__ == "__main__":
+    test_url = "http://slowwly.robertomurray.co.uk/delay/5000/url/" \
+        "https://www.example.com"
+
+    # Measure the time taken for the first request
+    start_time = time.time()
+    print(get_page(test_url))
+    print(f"Time taken for first request: {time.time() - start_time} seconds")
+
+    # Measure the time taken for the second request
+    start_time = time.time()
+    print(get_page(test_url))
+    print(f"Time taken for second request: {time.time() - start_time} seconds")
