@@ -3,6 +3,8 @@
 '''
 import redis
 import uuid
+from typing import Any, Callable, Union
+
 
 
 class Cache:
